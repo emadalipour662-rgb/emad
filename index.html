@@ -1,0 +1,90 @@
+╦|𝑴𝒓 • 𝑬𝒎𝒂𝒅♱, [⁨13⁩ نوامبر ⁨2026⁩، در ⁨17:05⁩]
+'<h2 style="text-align:center;color:#38bdf8">📋 اطلاعات کانفیگ WireGuard</h2>'+
+  '<div class="card">'+
+  '<div class="row"><span class="lbl">نام</span><span class="val">'+nameStr.replace(/</g,"")+'</span></div>'+
+  '<div class="row"><span class="lbl">شناسه</span><span class="val">'+subId+'</span></div>'+
+  '<div class="row"><span class="lbl">حجم</span><span class="val">'+totalGB+' GB</span></div>'+
+  '<div class="row"><span class="lbl">سرور</span><span class="val">'+ENDPOINT+'</span></div>'+
+  '<div class="row"><span class="lbl">وضعیت</span><span class="val"><span class="pill '+(on?"ok":"off")+'">'+statusTxt+'</span></span></div></div>'+
+  '<div class="conf">'+(confData||"⛔ کانفیگ غیرفعال").replace(/</g,"&lt;")+'</div>'+
+  (on?'<button class="btn" onclick="var c='+JSON.stringify(confData)+';var a=document.createElement(\'a\');a.href=URL.createObjectURL(new Blob([c]));a.download=\'config.conf\';a.click()">⬇️ دانلود فایل conf</button>':'<button class="btn" disabled>⛔ دانلود غیرفعال</button>')+
+  '<div class="qr">'+(on?'<img src="'+qrUrl+'" width="220" height="220"/>':'<div style="padding:80px;color:#38bdf8">⛔ غیرفعال</div>')+'</div>'+
+  '</div></body></html>';
+}
+
+function buildAllSubPageHtml() {
+var list = CONFIGS.filter(isActive);
+if (!list.length) return null;
+var cards = list.map(function(cfg, idx) {
+return '<div style="background:#fff;border-radius:14px;padding:14px;margin-bottom:14px;color:#111">'+
+'<h3>'+(cfg.name||("#"+(idx+1)))+'</h3><p style="color:#16a34a;font-weight:700">● فعال</p>'+
+'<p>حجم: '+(cfg.gb||0)+' GB | روزهای باقی‌مانده: '+remainingDays(cfg)+'</p>'+
+'<pre style="font-size:11px;overflow:auto;max-height:180px;background:#f5f5f5;padding:8px;direction:ltr;text-align:left">'+(cfg.confText||"").replace(/</g,"<")+'</pre></div>';
+}).join("");
+return '<!DOCTYPE html><html lang="fa" dir="rtl"><head><meta charset="UTF-8"/><title>ساب همه کانفیگ‌ها</title></head>'+
+'<body style="font-family:Tahoma;background:#f0f2f5;padding:16px;max-width:480px;margin:0 auto">'+
+'<h2>🌐 لینک ساب همه کانفیگ‌های فعال</h2>'+cards+'</body></html>';
+}
+
+async function uploadHtml(bodyHtml) {
+var url = null;
+try {
+var res = await fetch("https://api.pastes.dev/post", { method:"POST", headers:{"Content-Type":"text/html; charset=utf-8"}, body: bodyHtml });
+if (res.ok) { var data = await res.json(); if (data && data.key) url = "https://api.pastes.dev/"+data.key; }
+} catch(e) {}
+if (!url) {
+try {
+var fd = new FormData();
+fd.append("file", new Blob([bodyHtml],{type:"text/html;charset=utf-8"}), "sub.html");
+var res2 = await fetch("https://0x0.st", { method:"POST", body: fd });
+if (res2.ok) { var t = (await res2.text()).trim(); if (t.indexOf("http")===0) url = t; }
+} catch(e) {}
+}
+return url;
+}
+
+async function createSubFor(i) {
+var cfg = CONFIGS[i];
+if (!cfg) return;
+toast("⏳ در حال ساخت لینک ساب...");
+var body = buildSubPageHtml(cfg);
+var url = await uploadHtml(body);
+if (url) {
+cfg.httpsSubUrl = url;
+LAST_SUB_URL = url;
+save();
+var el = document.getElementById("subHttps");
+if (el) el.value = url;
+copyText(url);
+toast("✅ لینک ساب ساخته و کپی شد");
+renderSub(); renderDash(); renderList();
+} else {
+window.open(URL.createObjectURL(new Blob([body],{type:"text/html;charset=utf-8"})), "_blank");
+toast("⚠ خطا در هاست آنلاین — صفحه به صورت محلی باز شد");
+}
+}
+
+async function createSubAll() {
+var body = buildAllSubPageHtml();
+if (!body) { toast("⚠ کانفیگ فعالی برای ساخت ساب وجود ندارد"); return; }
+toast("⏳ در حال ساخت لینک همه فعال‌ها...");
+var url = await uploadHtml(body);
+if (url) {
+LAST_SUB_URL = url;
+save();
+var el = document.getElementById("subHttps");
+if (el) el.value = url;
+copyText(url);
+toast("✅ لینک ساب کلی ساخته شد");
+} else {
+window.open(URL.createObjectURL(new Blob([body],{type:"text/html;charset=utf-8"})), "_blank");
+toast("⚠ صفحه محلی باز شد");
+}
+}
+
+function createConfig() {
+var total = Number(PANEL.totalGB)||1000;
+var rem = Math.max(0, total - (Number(CONSUMED)||0));
+if (rem <= 0) { toast("⛔ حجم کل پنل به پایان رسیده است"); return; }
+var days = parseInt(document.getElementById("cfgDays").value,10)||30;
+var users = parseInt(document.
